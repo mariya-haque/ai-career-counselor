@@ -1,0 +1,8 @@
+# Verified against openai 2.48 and 3.0, fastapi 0.140 and 0.141, on Python 3.14.
+# The app uses the Responses API with strict structured outputs; if a future
+# openai major breaks that call, pin openai<4 here.
+fastapi
+uvicorn
+openai
+python-dotenv
+pydantic

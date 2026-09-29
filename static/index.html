@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Career counselor</title>
+<style>
+  /* A deliberately light, single-theme palette — no dark variant. */
+  :root {
+    --bg: #fbfbfd; --panel: #fff; --sunk: #f5f6f9;
+    --line: #e8eaef; --line-soft: #f0f1f5;
+    --text: #191c22; --muted: #767d8a;
+    --accent: #4f46e5; --accent-soft: #eef0fe; --accent-line: #d9dcfb;
+    --good: #0f9960; --good-soft: #ecfaf3;
+    --warm: #d97706; --warm-soft: #fff8ec;
+    --err: #d93a2b; --err-soft: #fef2f1;
+    --shadow: 0 1px 2px rgba(20,25,40,.05), 0 6px 20px rgba(20,25,40,.05);
+    --shadow-lg: 0 2px 6px rgba(20,25,40,.06), 0 14px 44px rgba(20,25,40,.09);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; cursor: pointer; }
+  ::selection { background: var(--accent-soft); }
+
+  #log::-webkit-scrollbar, aside::-webkit-scrollbar, .plan::-webkit-scrollbar { width: 10px; }
+  #log::-webkit-scrollbar-thumb, aside::-webkit-scrollbar-thumb, .plan::-webkit-scrollbar-thumb {
+    background: #dfe2e9; border-radius: 6px; border: 3px solid var(--bg);
+  }
+
+  /* ---- header ----------------------------------------------------------- */
+  header {
+    display: flex; align-items: center; gap: 11px; height: 56px; padding: 0 20px;
+    border-bottom: 1px solid var(--line); background: rgba(255,255,255,.85);
+    backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 20;
+  }
+  .mark {
+    width: 27px; height: 27px; border-radius: 8px; flex-shrink: 0;
+    background: linear-gradient(140deg, #6366f1, #4f46e5);
+    color: #fff; font-size: 14px; font-weight: 700;
+    display: grid; place-items: center;
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
+  header .spacer { flex: 1; }
+  .ghost {
+    font-size: 13px; color: var(--muted); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px;
+    transition: .15s;
+  }
+  .ghost:hover { color: var(--text); border-color: #d6d9e0; box-shadow: var(--shadow); }
+  .ghost.hot { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+
+  /* ---- shell ------------------------------------------------------------ */
+  .shell {
+    max-width: 1140px; margin: 0 auto; padding: 0 20px;
+    display: grid; grid-template-columns: minmax(0,1fr) 296px; gap: 30px;
+    height: calc(100dvh - 56px);
+  }
+  .shell.wide { grid-template-columns: minmax(0,1fr); }
+
+  .chat { display: flex; flex-direction: column; min-width: 0; }
+  #log { flex: 1; overflow-y: auto; padding: 24px 4px 8px; display: flex; flex-direction: column; gap: 15px; }
+
+  .row { display: flex; gap: 10px; animation: rise .32s cubic-bezier(.2,.7,.3,1) both; }
+  .row.me { justify-content: flex-end; }
+  @keyframes rise { from { opacity: 0; transform: translateY(9px) } }
+  .av {
+    width: 27px; height: 27px; border-radius: 8px; flex-shrink: 0; margin-top: 2px;
+    background: linear-gradient(140deg, #6366f1, #4f46e5); color: #fff;
+    font-size: 13px; font-weight: 700; display: grid; place-items: center;
+  }
+  .bubble {
+    max-width: 76%; padding: 11px 15px; border-radius: 15px;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .me .bubble {
+    background: var(--accent); color: #fff;
+    border-bottom-right-radius: 5px; box-shadow: 0 2px 10px rgba(79,70,229,.22);
+  }
+  .bot .bubble {
+    background: var(--panel); border: 1px solid var(--line);
+    border-bottom-left-radius: 5px; box-shadow: var(--shadow);
+  }
+  .bot .bubble.error {
+    background: var(--err-soft); border-color: #f6cfca; color: var(--err);
+    font: 13px/1.55 ui-monospace, monospace;
+  }
+  .caret {
+    display: inline-block; width: 2px; height: 1em; margin-left: 1px;
+    background: var(--accent); vertical-align: -2px; animation: pulse .9s steps(2) infinite;
+  }
+  @keyframes pulse { 50% { opacity: 0 } }
+  .typing { display: flex; gap: 5px; padding: 15px 16px; }
+  .typing i { width: 6px; height: 6px; border-radius: 50%; background: #b9bfcb; animation: bob 1.3s infinite; }
+  .typing i:nth-child(2) { animation-delay: .16s; }
+  .typing i:nth-child(3) { animation-delay: .32s; }
+  @keyframes bob { 0%,60%,100% { opacity: .3; transform: translateY(0) } 30% { opacity: 1; transform: translateY(-3px) } }
+
+  /* ---- composer --------------------------------------------------------- */
+  .composer { padding: 6px 0 20px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 2px 10px; }
+  .chip {
+    background: var(--panel); border: 1px solid var(--line); color: var(--text);
+    border-radius: 20px; padding: 6px 14px; font-size: 13.5px; transition: .15s;
+    animation: rise .3s cubic-bezier(.2,.7,.3,1) both;
+  }
+  .chip:hover { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); }
+  .box {
+    display: flex; gap: 8px; align-items: flex-end; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 16px; padding: 9px 9px 9px 16px;
+    box-shadow: var(--shadow); transition: .18s;
+  }
+  .box:focus-within { border-color: var(--accent-line); box-shadow: 0 0 0 4px var(--accent-soft); }
+  textarea {
+    flex: 1; border: 0; outline: 0; resize: none; background: none; color: var(--text);
+    font: inherit; max-height: 170px; padding: 6px 0;
+  }
+  textarea::placeholder { color: #aab0bc; }
+  .send {
+    border: 0; border-radius: 11px; background: var(--accent); color: #fff;
+    width: 36px; height: 36px; font-size: 17px; line-height: 1; flex-shrink: 0; transition: .15s;
+  }
+  .send:hover:not(:disabled) { background: #4338ca; transform: translateY(-1px); }
+  .send:disabled { opacity: .35; cursor: default; }
+  .hint {
+    font-size: 12.5px; color: var(--muted); padding: 9px 5px 0;
+    display: flex; gap: 14px; align-items: center;
+  }
+  .hint button { background: none; border: 0; color: var(--accent); padding: 0; font: inherit; font-weight: 550; }
+  .hint button:hover { text-decoration: underline; }
+
+  /* ---- profile rail ------------------------------------------------------ */
+  aside { padding: 26px 0; overflow-y: auto; }
+  .rail-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 13px; }
+  .rail-top h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0; font-weight: 650; }
+  .rail-top .pct { margin-left: auto; font-size: 12px; color: var(--accent); font-weight: 650; }
+  .meter { height: 6px; background: var(--line); border-radius: 4px; overflow: hidden; }
+  .meter div {
+    height: 100%; border-radius: 4px; width: 0;
+    background: linear-gradient(90deg, #818cf8, #4f46e5);
+    transition: width .5s cubic-bezier(.3,.8,.3,1);
+  }
+  .count { font-size: 12.5px; color: var(--muted); margin: 8px 0 18px; }
+  .field {
+    padding: 10px 12px; border-radius: 10px; margin-bottom: 4px;
+    border: 1px solid transparent; transition: .2s;
+  }
+  .field.on { background: var(--panel); border-color: var(--line); box-shadow: var(--shadow); }
+  .field.fresh { animation: pop .45s cubic-bezier(.2,.8,.3,1); }
+  @keyframes pop { 0% { transform: scale(.97); background: var(--accent-soft) } 100% { transform: scale(1) } }
+  .field .k {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); font-weight: 650; display: flex; align-items: center; gap: 5px;
+  }
+  .field.on .k { color: var(--good); }
+  .field .tick { opacity: 0; transition: .25s; }
+  .field.on .tick { opacity: 1; }
+  .field .v { font-size: 13.5px; margin-top: 3px; overflow-wrap: anywhere; }
+  .field .v.empty { color: #b3b9c4; }
+
+  /* ---- plan -------------------------------------------------------------- */
+  .plan { overflow-y: auto; padding: 28px 0 70px; display: none; }
+  .plan.on { display: block; animation: rise .4s cubic-bezier(.2,.7,.3,1) both; }
+  .head {
+    background: linear-gradient(160deg, #fff, #f7f8ff);
+    border: 1px solid var(--line); border-radius: 18px; padding: 28px 30px; box-shadow: var(--shadow-lg);
+  }
+  .head h2 { margin: 0; font-size: 27px; letter-spacing: -.022em; line-height: 1.25; }
+  .pill {
+    display: inline-block; margin: 12px 0 15px; font-size: 12.5px; font-weight: 600;
+    background: var(--accent-soft); color: var(--accent); padding: 5px 13px;
+    border-radius: 20px; border: 1px solid var(--accent-line);
+  }
+  .verdict { margin: 0; color: #333944; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 15px; padding: 19px 21px; box-shadow: var(--shadow); }
+  .card h3, .sec > h3 {
+    margin: 0 0 12px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--muted); font-weight: 650;
+  }
+  .card ul, .card ol { margin: 0; padding-left: 19px; }
+  .card li { margin-bottom: 8px; }
+  .card li:last-child { margin-bottom: 0; }
+  .card li::marker { color: var(--accent); }
+  .sec { margin-top: 28px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 10px 13px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+  th { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 650; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--sunk); }
+  td.day { white-space: nowrap; font-weight: 600; width: 108px; }
+  .blocks { display: flex; flex-wrap: wrap; gap: 6px; }
+  .blocks span { background: var(--sunk); border: 1px solid var(--line); border-radius: 7px; padding: 3px 9px; font-size: 12.5px; }
+
+  .month { margin-bottom: 12px; }
+  .month > summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center; gap: 14px;
+    padding: 16px 20px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 15px; box-shadow: var(--shadow); transition: .15s;
+  }
+  .month > summary:hover { border-color: var(--accent-line); }
+  .month[open] > summary { border-radius: 15px 15px 0 0; border-bottom-color: transparent; box-shadow: none; }
+  .month > summary::-webkit-details-marker { display: none; }
+  .month .num {
+    width: 34px; height: 34px; flex-shrink: 0; border-radius: 11px;
+    background: var(--accent-soft); color: var(--accent); font-size: 13.5px; font-weight: 700;
+    display: grid; place-items: center; border: 1px solid var(--accent-line);
+  }
+  .month.full .num { background: var(--good-soft); color: var(--good); border-color: #bfe8d4; }
+  .month .theme { font-weight: 620; font-size: 15.5px; letter-spacing: -.008em; }
+  .month .skills { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+  .month .tally { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .month .chev { color: #b8bec9; transition: transform .22s; font-size: 18px; }
+  .month[open] .chev { transform: rotate(90deg); }
+  .month .body {
+    background: var(--panel); border: 1px solid var(--line); border-top: 0;
+    border-radius: 0 0 15px 15px; padding: 2px 22px 22px; box-shadow: var(--shadow);
+  }
+  .week { border-top: 1px solid var(--line-soft); padding: 15px 0; }
+  .week .wk { font-size: 10.5px; letter-spacing: .07em; color: var(--accent); font-weight: 700; }
+  .week .goal { font-weight: 550; margin: 3px 0 10px; }
+  .task { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; cursor: pointer; }
+  .task input { margin: 5px 0 0; accent-color: var(--accent); width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
+  .task span { font-size: 14px; transition: .2s; }
+  .task.done span { color: #a8aeb9; text-decoration: line-through; }
+  .strip { border-top: 1px solid var(--line-soft); padding: 14px 0 0; margin-top: 4px; font-size: 14px; }
+  .strip b { font-weight: 620; }
+  .res { display: flex; gap: 10px; padding: 7px 0; font-size: 13.5px; }
+  .tag {
+    flex-shrink: 0; font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); background: var(--sunk); border: 1px solid var(--line);
+    border-radius: 6px; padding: 2px 8px; height: fit-content; margin-top: 3px;
+  }
+  .done-box {
+    background: var(--good-soft); color: #0b6b45; border: 1px solid #cbeedd;
+    border-radius: 11px; padding: 11px 14px; font-size: 13.5px; margin-top: 14px;
+  }
+  .risk { border-top: 1px solid var(--line-soft); padding: 12px 0; }
+  .risk:first-of-type { border-top: 0; padding-top: 0; }
+  .risk .r { font-weight: 620; }
+  .risk .f { color: var(--muted); font-size: 13.5px; }
+  .first {
+    margin-top: 28px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: #fff;
+    border-radius: 18px; padding: 24px 28px; box-shadow: 0 12px 34px rgba(79,70,229,.28);
+  }
+  .first h3 { margin: 0 0 7px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .09em; opacity: .82; font-weight: 650; }
+  .first p { margin: 0; font-size: 17px; font-weight: 550; line-height: 1.5; }
+
+  .building { text-align: center; padding: 90px 20px; color: var(--muted); }
+  .spin {
+    width: 30px; height: 30px; margin: 0 auto 18px; border-radius: 50%;
+    border: 3px solid var(--line); border-top-color: var(--accent); animation: spin .75s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg) } }
+  .building .step { margin-top: 9px; font-size: 13.5px; color: #9aa1ad; min-height: 1.4em; }
+
+  /* ---- accounts ----------------------------------------------------------- */
+  .gate {
+    position: fixed; inset: 0; background: var(--bg);
+    display: none; place-items: center; z-index: 60; padding: 20px; overflow-y: auto;
+  }
+  .gate.on { display: grid; }
+  .gate .card { max-width: 372px; width: 100%; padding: 30px 30px 26px; box-shadow: var(--shadow-lg); }
+  .gate .mark { width: 42px; height: 42px; border-radius: 13px; font-size: 20px; margin: 0 auto 16px; }
+  .gate h2 { margin: 0; font-size: 19px; letter-spacing: -.015em; text-align: center; }
+  .gate .sub { margin: 6px 0 20px; font-size: 13.5px; color: var(--muted); text-align: center; }
+  .tabs {
+    display: flex; gap: 3px; background: var(--sunk); border-radius: 11px;
+    padding: 3px; margin-bottom: 20px;
+  }
+  .tabs button {
+    flex: 1; border: 0; background: none; color: var(--muted); font-size: 13.5px;
+    font-weight: 550; padding: 8px; border-radius: 9px; transition: .15s;
+  }
+  .tabs button.on { background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
+  .gate label { display: block; margin-bottom: 12px; }
+  .gate label span {
+    display: block; font-size: 11.5px; font-weight: 600; color: var(--muted);
+    margin-bottom: 5px; letter-spacing: .01em;
+  }
+  .gate input {
+    width: 100%; font: inherit; padding: 10px 13px; border: 1px solid var(--line);
+    border-radius: 10px; outline: 0; background: var(--sunk); transition: .15s;
+  }
+  .gate input:focus { border-color: var(--accent-line); background: #fff; box-shadow: 0 0 0 4px var(--accent-soft); }
+  .gate .go {
+    width: 100%; margin-top: 6px; border: 0; border-radius: 11px;
+    background: var(--accent); color: #fff; padding: 11px; font-weight: 600; transition: .15s;
+  }
+  .gate .go:hover:not(:disabled) { background: #4338ca; }
+  .gate .go:disabled { opacity: .55; cursor: default; }
+  .gate .bad {
+    color: var(--err); background: var(--err-soft); border: 1px solid #f6cfca;
+    border-radius: 9px; font-size: 13px; margin-top: 12px; padding: 8px 12px; display: none;
+  }
+  .gate .bad.on { display: block; }
+  .gate .foot { margin: 16px 0 0; font-size: 12.5px; color: var(--muted); text-align: center; }
+
+  .who {
+    display: flex; align-items: center; gap: 8px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 20px; padding: 4px 12px 4px 5px;
+    font-size: 13px; transition: .15s;
+  }
+  .who:hover { border-color: #d6d9e0; box-shadow: var(--shadow); }
+  .who .pic {
+    width: 23px; height: 23px; border-radius: 50%; background: var(--accent-soft);
+    color: var(--accent); font-size: 11px; font-weight: 700; display: grid; place-items: center;
+  }
+  .menu {
+    position: fixed; top: 52px; right: 20px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 13px; box-shadow: var(--shadow-lg);
+    width: 292px; padding: 7px; display: none; z-index: 30;
+  }
+  .menu.on { display: block; }
+  .menu .head-row { padding: 9px 11px 11px; border-bottom: 1px solid var(--line-soft); margin-bottom: 6px; }
+  .menu .head-row b { display: block; font-size: 14px; }
+  .menu .head-row span { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+  .menu h4 {
+    margin: 8px 11px 5px; font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--muted); font-weight: 650;
+  }
+  .menu .item {
+    display: block; width: 100%; text-align: left; border: 0; background: none;
+    padding: 8px 11px; border-radius: 9px; font-size: 13.5px; color: var(--text); transition: .12s;
+  }
+  .menu .item:hover { background: var(--sunk); }
+  .menu .item small { display: block; color: var(--muted); font-size: 12px; }
+  .menu .item.now { background: var(--accent-soft); color: var(--accent); }
+  .menu .out { color: var(--err); border-top: 1px solid var(--line-soft); margin-top: 6px; padding-top: 10px; border-radius: 0 0 9px 9px; }
+  .menu .empty { padding: 4px 11px 10px; font-size: 12.5px; color: var(--muted); }
+  .menu .scroll { max-height: 232px; overflow-y: auto; }
+
+  .toast {
+    position: fixed; bottom: 26px; left: 50%; transform: translate(-50%, 18px);
+    background: #191c22; color: #fff; padding: 10px 18px; border-radius: 11px;
+    font-size: 13.5px; opacity: 0; pointer-events: none; transition: .28s; z-index: 70;
+  }
+  .toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 880px) {
+    .shell { grid-template-columns: minmax(0,1fr); height: auto; }
+    aside { display: none; }
+    .cols { grid-template-columns: 1fr; }
+    .bubble { max-width: 84%; }
+    .head { padding: 22px; }
+    .head h2 { font-size: 22px; }
+  }
+  @media print {
+    header, .chat, aside, .toast { display: none !important; }
+    .plan { padding: 0; }
+    .month .body { display: block !important; }
+    .card, .head, .month > summary, .month .body { box-shadow: none; break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="mark">C</div>
+  <h1>Career counselor</h1>
+  <span class="spacer"></span>
+  <button class="ghost" id="back" style="display:none">← Chat</button>
+  <button class="ghost" id="print" style="display:none">Print</button>
+  <button class="ghost hot" id="download" style="display:none">Download</button>
+  <button class="ghost" id="restart">New plan</button>
+  <button class="who" id="who" style="display:none"><span class="pic" id="pic"></span><span id="whoName"></span></button>
+</header>
+
+<div class="menu" id="menu">
+  <div class="head-row"><b id="menuName"></b><span id="menuMail"></span></div>
+  <h4>Your plans</h4>
+  <div class="scroll" id="plans"></div>
+  <button class="item out" id="signout">Sign out</button>
+</div>
+
+<div class="shell" id="shell">
+  <div class="chat" id="chat">
+    <div id="log"></div>
+    <div class="composer">
+      <div class="chips" id="chips"></div>
+      <div class="box">
+        <textarea id="input" rows="1" placeholder="Type your answer…"></textarea>
+        <button class="send" id="send" title="Send">↑</button>
+      </div>
+      <div class="hint">
+        <span>Enter to send · Shift+Enter for a new line</span>
+        <button id="skip" style="display:none">Build my plan now →</button>
+      </div>
+    </div>
+  </div>
+
+  <aside id="rail">
+    <div class="rail-top">
+      <h2>Your profile</h2>
+      <span class="pct" id="pct">0%</span>
+    </div>
+    <div class="meter"><div id="bar"></div></div>
+    <div class="count" id="count">Let's begin</div>
+    <div id="fields"></div>
+  </aside>
+
+  <div class="plan" id="plan"></div>
+</div>
+
+<div class="gate" id="gate">
+  <div class="card">
+    <div class="mark">C</div>
+    <h2>Career counselor</h2>
+    <div class="sub">Your answers and your plan stay in your account.</div>
+
+    <div class="tabs">
+      <button id="tabIn" class="on">Sign in</button>
+      <button id="tabUp">Create account</button>
+    </div>
+
+    <form id="authForm" autocomplete="on">
+      <label id="rowName" style="display:none">
+        <span>Your name</span>
+        <input id="fName" type="text" autocomplete="name" placeholder="Ali Raza" />
+      </label>
+      <label>
+        <span>Email</span>
+        <input id="fMail" type="email" autocomplete="email" placeholder="you@example.com" />
+      </label>
+      <label>
+        <span>Password</span>
+        <input id="fPass" type="password" autocomplete="current-password" placeholder="••••••••" />
+      </label>
+      <label id="rowInvite" style="display:none">
+        <span>Invite code</span>
+        <input id="fInvite" type="text" placeholder="Given to you by whoever shared this" />
+      </label>
+      <button class="go" id="go" type="submit">Sign in</button>
+    </form>
+
+    <div class="bad" id="bad"></div>
+    <p class="foot" id="foot">No account yet? Pick <b>Create account</b> above.</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const log = $('log'), input = $('input'), planEl = $('plan'), shell = $('shell');
+let sid = null;
+let busy = false, planned = false, filled = new Set(), ticks = {};
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const atBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 90;
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('on'), 2100);
+}
+
+function row(who, inner) {
+  const el = document.createElement('div');
+  el.className = 'row ' + who;
+  el.innerHTML = (who === 'bot' ? '<div class="av">C</div>' : '') + inner;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+  return el;
+}
+
+/* Reveal the counsellor's replies a few characters at a time. Long answers would
+   crawl at a fixed rate, so the step scales with length and always lands in ~1s. */
+function say(text) {
+  return new Promise(resolve => {
+    const el = row('bot', '<div class="bubble"></div>').querySelector('.bubble');
+    const step = Math.max(1, Math.ceil(text.length / 55));
+    let i = 0, stick = true;
+    const tick = setInterval(() => {
+      i = Math.min(text.length, i + step);
+      el.innerHTML = esc(text.slice(0, i)) + (i < text.length ? '<span class="caret"></span>' : '');
+      if (stick) log.scrollTop = log.scrollHeight;
+      if (i >= text.length) { clearInterval(tick); resolve(); }
+    }, 18);
+    log.addEventListener('scroll', () => { stick = atBottom(); }, { passive: true });
+  });
+}
+
+function bubble(text, who, cls = '') {
+  return row(who, `<div class="bubble ${cls}">${esc(text)}</div>`);
+}
+
+function typing(on) {
+  const old = $('dots');
+  if (old) old.remove();
+  if (!on) return;
+  const el = row('bot', '<div class="bubble typing"><i></i><i></i><i></i></div>');
+  el.id = 'dots';
+}
+
+function lock(on) {
+  busy = on;
+  $('send').disabled = on;
+  input.disabled = on;
+  typing(on);
+}
+
+async function api(path, body) {
+  const res = await fetch(path, {
+    method: body ? 'POST' : 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 401 && path !== '/api/unlock') { showGate(); throw new Error('locked'); }
+  return res.json();
+}
+
+/* ---- accounts ------------------------------------------------------------- */
+let mode = 'in', me = null, needInvite = false;
+
+function showGate() {
+  $('gate').classList.add('on');
+  setTimeout(() => ($(mode === 'up' ? 'fName' : 'fMail')).focus(), 60);
+}
+
+function setMode(next) {
+  mode = next;
+  const up = next === 'up';
+  $('tabIn').classList.toggle('on', !up);
+  $('tabUp').classList.toggle('on', up);
+  $('rowName').style.display = up ? '' : 'none';
+  $('rowInvite').style.display = up && needInvite ? '' : 'none';
+  $('go').textContent = up ? 'Create account' : 'Sign in';
+  $('fPass').autocomplete = up ? 'new-password' : 'current-password';
+  $('foot').innerHTML = up
+    ? 'Already have one? Pick <b>Sign in</b> above.'
+    : 'No account yet? Pick <b>Create account</b> above.';
+  $('bad').classList.remove('on');
+  ($(up ? 'fName' : 'fMail')).focus();
+}
+$('tabIn').onclick = () => setMode('in');
+$('tabUp').onclick = () => setMode('up');
+
+function fail(msg) {
+  const el = $('bad');
+  el.textContent = msg;
+  el.classList.add('on');
+}
+
+$('authForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const up = mode === 'up';
+  const body = up
+    ? { name: $('fName').value, email: $('fMail').value, password: $('fPass').value, invite: $('fInvite').value }
+    : { email: $('fMail').value, password: $('fPass').value };
+
+  $('go').disabled = true;
+  $('go').textContent = up ? 'Creating…' : 'Signing in…';
+  try {
+    const res = await fetch(up ? '/api/auth/signup' : '/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) { fail(data.error || 'That did not work.'); $('fPass').value = ''; return; }
+    me = data.user;
+    $('gate').classList.remove('on');
+    $('bad').classList.remove('on');
+    $('authForm').reset();
+    await afterAuth();
+  } catch (err) {
+    fail(String(err));
+  } finally {
+    $('go').disabled = false;
+    $('go').textContent = up ? 'Create account' : 'Sign in';
+  }
+});
+
+const initials = n => n.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+const sidKey = () => 'career_sid_' + (me ? me.id : 'anon');
+
+function showUser() {
+  $('who').style.display = '';
+  $('pic').textContent = initials(me.name);
+  $('whoName').textContent = me.name.split(' ')[0];
+  $('menuName').textContent = me.name;
+  $('menuMail').textContent = me.email;
+}
+
+$('who').onclick = async e => {
+  e.stopPropagation();
+  const menu = $('menu');
+  menu.classList.toggle('on');
+  if (menu.classList.contains('on')) await drawPlans();
+};
+document.addEventListener('click', e => {
+  if (!$('menu').contains(e.target)) $('menu').classList.remove('on');
+});
+
+async function drawPlans() {
+  const box = $('plans');
+  box.innerHTML = '<div class="empty">Loading…</div>';
+  const { sessions } = await api('/api/sessions');
+  if (!sessions.length) { box.innerHTML = '<div class="empty">Nothing yet — this is your first.</div>'; return; }
+  box.innerHTML = '';
+  sessions.forEach(s => {
+    const b = document.createElement('button');
+    b.className = 'item' + (s.id === sid ? ' now' : '');
+    const when = new Date(s.updated_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    const label = s.has_plan ? s.headline : `In progress — ${s.answered} answered`;
+    b.innerHTML = `${esc(label.slice(0, 46))}<small>${when}${s.id === sid ? ' · open now' : ''}</small>`;
+    b.onclick = () => { $('menu').classList.remove('on'); openSession(s.id); };
+    box.appendChild(b);
+  });
+}
+
+async function openSession(id) {
+  sid = id;
+  localStorage.setItem(sidKey(), id);
+  location.reload();
+}
+
+$('signout').onclick = async () => {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  localStorage.removeItem(sidKey());
+  location.reload();
+};
+
+/* ---- chat ---------------------------------------------------------------- */
+function drawChips(chips) {
+  const box = $('chips');
+  box.innerHTML = '';
+  (chips || []).forEach((c, i) => {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.textContent = c;
+    b.style.animationDelay = (i * 35) + 'ms';
+    b.onclick = () => {
+      input.value = input.value.trim() ? input.value.trim() + ', ' + c : c;
+      input.focus();
+      input.dispatchEvent(new Event('input'));
+    };
+    box.appendChild(b);
+  });
+}
+
+async function render(data, animate = true) {
+  if (!data) return;
+  if (data.session_id) {
+    sid = data.session_id;
+    localStorage.setItem(sidKey(), sid);
+  }
+
+  for (const m of (data.messages || [])) {
+    if (animate) await say(m); else bubble(m, 'bot');
+  }
+  if (data.error) bubble(data.error, 'bot', 'error');
+
+  if (data.profile) {
+    const box = $('fields');
+    box.innerHTML = '';
+    for (const [key, f] of Object.entries(data.profile)) {
+      const isNew = f.value && !filled.has(key);
+      if (f.value) filled.add(key);
+      const el = document.createElement('div');
+      el.className = 'field' + (f.value ? ' on' : '') + (isNew && animate ? ' fresh' : '');
+      el.innerHTML = `<div class="k"><span class="tick">✓</span>${esc(f.label)}</div>
+        <div class="v ${f.value ? '' : 'empty'}">${esc(f.value || 'Not yet')}</div>`;
+      box.appendChild(el);
+    }
+    (data.extra || []).forEach(([q, a]) => {
+      const el = document.createElement('div');
+      el.className = 'field on';
+      el.innerHTML = `<div class="k"><span class="tick">✓</span>Follow-up</div><div class="v">${esc(a)}</div>`;
+      box.appendChild(el);
+    });
+  }
+
+  if (data.progress) {
+    const { done, total } = data.progress;
+    const pct = Math.round((done / total) * 100);
+    $('bar').style.width = pct + '%';
+    $('pct').textContent = pct + '%';
+    $('count').textContent = done ? `${done} of ${total} answered` : "Let's begin";
+    $('skip').style.display = done >= 4 && !data.plan ? '' : 'none';
+  }
+
+  drawChips(data.plan ? [] : data.chips);
+
+  if (data.plan) drawPlan(data.plan);
+  else if (data.stage === 'ready' && !planned) buildPlan();
+}
+
+async function send(text) {
+  text = (text ?? input.value).trim();
+  if (!text || busy) return;
+  bubble(text, 'me');
+  input.value = '';
+  input.style.height = 'auto';
+  drawChips([]);
+  lock(true);
+  try {
+    const data = await api('/api/message', { session_id: sid, text });
+    typing(false);
+    await render(data);
+  } catch (err) {
+    if (err.message !== 'locked') bubble(String(err), 'bot', 'error');
+  }
+  lock(false);
+  input.focus();
+}
+
+/* ---- plan ---------------------------------------------------------------- */
+const STEPS = [
+  'Reading your answers…',
+  'Choosing a direction that fits your hours…',
+  'Laying out month one…',
+  'Filling in all 24 weeks…',
+  'Fitting it around your gym and hobbies…',
+  'Picking resources inside your budget…',
+  'Almost there…',
+];
+
+async function buildPlan() {
+  planned = true;
+  toPlanView();
+  planEl.innerHTML = `<div class="building"><div class="spin"></div>
+    <div>Writing your six-month plan.</div><div class="step" id="step"></div></div>`;
+
+  let i = 0;
+  const cycle = setInterval(() => {
+    const s = $('step');
+    if (s) s.textContent = STEPS[i++ % STEPS.length];
+  }, 3800);
+  $('step').textContent = STEPS[0];
+
+  try {
+    const data = await api('/api/plan', { session_id: sid });
+    clearInterval(cycle);
+    if (data.plan) render(data, false);
+    else {
+      planEl.innerHTML = `<div class="building">Couldn't build the plan.<br><br>
+        <code>${esc(data.error || 'unknown error')}</code></div>`;
+      $('back').style.display = '';
+    }
+  } catch (err) {
+    clearInterval(cycle);
+    if (err.message !== 'locked') {
+      planEl.innerHTML = `<div class="building">${esc(err)}</div>`;
+      $('back').style.display = '';
+    }
+  }
+}
+
+function toPlanView() {
+  $('chat').style.display = 'none';
+  $('rail').style.display = 'none';
+  shell.classList.add('wide');
+  planEl.classList.add('on');
+  $('back').style.display = '';
+}
+
+function list(items) { return (items || []).map(i => `<li>${esc(i)}</li>`).join(''); }
+
+function drawPlan(p) {
+  planned = true;
+  toPlanView();
+  $('download').style.display = '';
+  $('print').style.display = '';
+  ticks = JSON.parse(localStorage.getItem('ticks_' + sid) || '{}');
+
+  const months = (p.months || []).map((m, mi) => `
+    <details class="month" data-m="${mi}" ${mi === 0 ? 'open' : ''}>
+      <summary>
+        <div class="num">${esc(m.month)}</div>
+        <div>
+          <div class="theme">${esc(m.theme)}</div>
+          <div class="skills">${esc((m.focus_skills || []).join(' · '))}</div>
+        </div>
+        <div class="tally"></div>
+        <div class="chev">›</div>
+      </summary>
+      <div class="body">
+        ${(m.weeks || []).map((w, wi) => `
+          <div class="week">
+            <div class="wk">WEEK ${esc(w.week)}</div>
+            <div class="goal">${esc(w.goal)}</div>
+            ${(w.tasks || []).map((t, ti) => {
+              const id = `${mi}-${wi}-${ti}`;
+              const on = ticks[id] ? ' done' : '';
+              return `<label class="task${on}" data-id="${id}">
+                <input type="checkbox" ${ticks[id] ? 'checked' : ''} />
+                <span>${esc(t)}</span></label>`;
+            }).join('')}
+          </div>`).join('')}
+        <div class="strip"><b>Build this month:</b> ${esc(m.project)}</div>
+        <div class="strip"><b>Certification:</b> ${esc(m.certification)}</div>
+        <div class="strip"><b>Resources</b>
+          ${(m.resources || []).map(r => `
+            <div class="res"><span class="tag">${esc(r.kind)}</span>
+              <span><b>${esc(r.name)}</b> · ${esc(r.cost)}<br>${esc(r.why)}</span></div>`).join('')}
+        </div>
+        <div class="done-box"><b>Done when:</b> ${esc(m.checkpoint)}</div>
+      </div>
+    </details>`).join('');
+
+  planEl.innerHTML = `
+    <div class="head">
+      <h2>${esc(p.headline)}</h2>
+      <div class="pill">Target: ${esc(p.target_role)}</div>
+      <p class="verdict">${esc(p.verdict)}</p>
+    </div>
+
+    <div class="cols">
+      <div class="card"><h3>What you've already got</h3><ul>${list(p.strengths)}</ul></div>
+      <div class="card"><h3>What's missing</h3><ul>${list(p.gaps)}</ul></div>
+    </div>
+
+    <div class="sec">
+      <h3>Your week</h3>
+      <div class="card" style="padding:8px 10px">
+        <table><thead><tr><th>Day</th><th>Blocks</th></tr></thead><tbody>
+          ${(p.weekly_routine || []).map(d => `<tr>
+            <td class="day">${esc(d.day)}</td>
+            <td><div class="blocks">${(d.blocks || []).map(b => `<span>${esc(b)}</span>`).join('')}</div></td>
+          </tr>`).join('')}
+        </tbody></table>
+      </div>
+    </div>
+
+    <div class="sec"><h3>The six months — tick tasks off as you go</h3>${months}</div>
+
+    <div class="cols">
+      <div class="card"><h3>What you'll own at the end</h3><ul>${list(p.portfolio)}</ul></div>
+      <div class="card"><h3>Job search</h3><ol>${list(p.job_search)}</ol></div>
+    </div>
+    <div class="cols">
+      <div class="card"><h3>Habits to hold</h3><ul>${list(p.habits)}</ul></div>
+      <div class="card"><h3>Where this could go wrong</h3>
+        ${(p.risks || []).map(r => `<div class="risk">
+          <div class="r">${esc(r.risk)}</div><div class="f">${esc(r.fix)}</div></div>`).join('')}
+      </div>
+    </div>
+
+    <div class="first"><h3>Start here, today</h3><p>${esc(p.first_step)}</p></div>`;
+
+  planEl.querySelectorAll('.task input').forEach(box => {
+    box.addEventListener('change', e => {
+      const label = e.target.closest('.task');
+      ticks[label.dataset.id] = e.target.checked;
+      label.classList.toggle('done', e.target.checked);
+      localStorage.setItem('ticks_' + sid, JSON.stringify(ticks));
+      tally();
+    });
+  });
+  tally();
+  planEl.scrollTop = 0;
+}
+
+function tally() {
+  planEl.querySelectorAll('.month').forEach(m => {
+    const boxes = m.querySelectorAll('.task input');
+    const done = m.querySelectorAll('.task input:checked').length;
+    m.querySelector('.tally').textContent = `${done}/${boxes.length}`;
+    m.classList.toggle('full', boxes.length > 0 && done === boxes.length);
+  });
+}
+
+/* ---- wiring --------------------------------------------------------------- */
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 170) + 'px';
+});
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+$('send').onclick = () => send();
+$('skip').onclick = () => { if (!busy) buildPlan(); };
+$('print').onclick = () => window.print();
+$('download').onclick = () => {
+  window.open(`/api/plan/${sid}.md`, '_blank');
+  toast('Downloading your plan…');
+};
+$('back').onclick = () => {
+  planEl.classList.remove('on');
+  shell.classList.remove('wide');
+  $('chat').style.display = '';
+  $('rail').style.display = '';
+  $('back').style.display = 'none';
+};
+$('restart').onclick = () => {
+  // The old plan is not lost — it stays in the account, under Your plans.
+  localStorage.removeItem(sidKey());
+  location.reload();
+};
+
+async function boot() {
+  const state = await (await fetch('/api/auth/state')).json();
+  needInvite = state.invite_required;
+  setMode('in');
+  if (!state.user) { showGate(); return; }
+  me = state.user;
+  await afterAuth();
+}
+
+async function afterAuth() {
+  showUser();
+  sid = localStorage.getItem(sidKey());
+
+  if (sid) {
+    const res = await fetch(`/api/session/${sid}`);
+    if (res.ok) {
+      const data = await res.json();
+      (data.history || []).forEach(h => bubble(h.text, h.role === 'you' ? 'me' : 'bot'));
+      planned = !!data.plan;
+      await render(data, false);
+      input.focus();
+      return;
+    }
+    localStorage.removeItem(sidKey());
+    sid = null;
+  }
+
+  lock(true);
+  const data = await api('/api/start', {});
+  typing(false);
+  await render(data);
+  lock(false);
+  input.focus();
+}
+boot();
+</script>
+</body>
+</html>

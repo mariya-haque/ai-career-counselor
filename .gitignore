@@ -1,0 +1,40 @@
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Virtual environments ---
+venv/
+.venv/
+env/
+myenv/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# --- Local databases (career.db holds users, password hashes, logins, sessions) ---
+*.db
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# --- Binaries (cloudflared.exe is ~53MB and re-downloadable, not source) ---
+cloudflared.exe
+cloudflared
+*.exe
+
+# --- Node (not used, kept for safety) ---
+node_modules/
+dist/
+
+# --- Logs ---
+*.log
+
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
